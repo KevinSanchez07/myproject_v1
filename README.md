@@ -18,3 +18,4 @@ CONSIDERACIONES
 4. Instalar las mismas versiones de las librerias (se recomienda que sea con distribucion de linux para mayor conexion con los servicios de AWS)
 5. Se envia un doc de docker para mayor entendimiento de la API
 6. En el notebook se evidencia la funcionalidad de la conexion propia de los servicios de aws
+7. Link de la arquitectura de la solucion se encuentra en el archivo de api-test.py
