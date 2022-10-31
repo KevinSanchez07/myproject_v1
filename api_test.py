@@ -1,3 +1,8 @@
+# Name:              api_test.py
+# Developers:        Kevin Alexander Martinez Sanchez
+# Creation date:     30th September of 2022
+# Modification date: 30th September of 2022
+
 import json
 import flask
 import requests
@@ -79,6 +84,7 @@ def data_to_df(data:dict):
     
     
 def get_request(request:dict):
+#def get_request():
     logger.info(f"Request: {request}")
     method = request.method
     if method != "GET":
@@ -99,7 +105,31 @@ def get_request(request:dict):
     
     event = json.loads(request.data.decode("utf-8"))
     initial_data = event.get("data")
-    return initial_data
+              
+    if isinstance(initial_data, dict):
+        customer_id = initial_data.get("customer_id", "unknown")
+    
+    try:
+        obtain_data = get_data()
+        df = data_to_df(obtain_data)
+        df_dynamo = get_all_dynamo_db_data()
+        df_concat = pd.concat([df, df_dynamo], axis=1, join="inner")
+        df_search = df_concat[df_concat['customer_id'] == '1123']
+        value_cash = str(df_search.cash_amount.to_list()).replace('[', '').replace(']', '')
+        value_customer_id = str(df_search.customer_id.to_list()).replace('[', '').replace(']', '')
+        value_date = str(df_search.ex_dividend_date.to_list()).replace('[', '').replace(']', '')
+        value_money = str(df_search.currency.to_list()).replace('[', '').replace(']', '')
+
+        builtins.customer_id = customer_id
+        request_data = {"data": {"customer_id": value_customer_id,
+                                 "value_cash": value_cash,
+                                 "value_date": value_date,
+                                 "value_money": value_money
+                                 }
+                        }
+        return request_data
+    except Exception as e:
+        print(e)
 
               
 def pd_read_s3_csv(key, sep=','):
@@ -131,12 +161,17 @@ def hello():
     return "Hello World!"
 
 
-@app.route("/main", methods=['POST', 'GET'])
-def main():
-    print("exitoso")
-    obtain_data = get_data()
-    print(f'obtain_data: {obtain_data}')
-    return 'status: 200'
+@app.route("/main", methods=['GET'])
+def main(request:dict):
+#def main():
+    try:
+        print("exitoso")
+        request = get_request()
+        #print(request)
+        print("status: 200")
+        return str(request)
+    except Exception as e:
+        print(e)
 
 
 if __name__ == '__main__':
