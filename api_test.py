@@ -1,11 +1,13 @@
 # Name:              api_test.py
 # Developers:        Kevin Alexander Martinez Sanchez
 # Creation date:     30th September of 2022
-# Modification date: 30th September of 2022
+# Modification date: 31th September of 2022
+# Diagram link:      https://lucid.app/lucidchart/20424413-1db2-43f5-80e2-0c32365da439/edit?viewport_loc=44%2C-12%2C1579%2C776%2C0_0&invitationId=inv_b9af206f-1e47-4e1c-b953-c44427f45df8
 
 import json
 import flask
 import requests
+import builtins
 import traceback
 import pandas as pd
 from helpers.constants import API_URL, TABLE, dynamodb_client
@@ -83,51 +85,39 @@ def data_to_df(data:dict):
         return f'error: {error}, {e}'
     
     
-def get_request(request:dict):
-#def get_request():
-    logger.info(f"Request: {request}")
-    method = request.method
-    if method != "GET":
-        return 'invalid method'
-    
-    content_type = request.headers.get("content-type")
-    if content_type != "application/json":
-        return 'invalid content_type'
-
-    body_request = request.get_json()
-
-    if body_request is None:
-        return 'body_request is None'
-    if list(body_request['data'].keys()) != EXPECTED_KEYS:
-        print(f'validador keys data: {body_request["data"].keys()}')
-        print(EXPECTED_KEYS)
-        return 'Invalid keys'
-    
-    event = json.loads(request.data.decode("utf-8"))
-    initial_data = event.get("data")
-              
-    if isinstance(initial_data, dict):
-        customer_id = initial_data.get("customer_id", "unknown")
+def get_request(request):
+    str_to_dict = '{' + request + '}'
+    json_request = json.dumps(str_to_dict)
+    str_to_dict = json_request.replace("\'", "\"")
+    print(str_to_dict)
+    request_ = json.loads(str_to_dict)
+    res = json.loads(request_)
+    print(f"Request: {res}")
+    customer_id = res.get("customer_id")
     
     try:
         obtain_data = get_data()
         df = data_to_df(obtain_data)
         df_dynamo = get_all_dynamo_db_data()
         df_concat = pd.concat([df, df_dynamo], axis=1, join="inner")
-        df_search = df_concat[df_concat['customer_id'] == '1123']
+        df_search = df_concat[df_concat['customer_id'] == customer_id]
         value_cash = str(df_search.cash_amount.to_list()).replace('[', '').replace(']', '')
         value_customer_id = str(df_search.customer_id.to_list()).replace('[', '').replace(']', '')
         value_date = str(df_search.ex_dividend_date.to_list()).replace('[', '').replace(']', '')
         value_money = str(df_search.currency.to_list()).replace('[', '').replace(']', '')
 
         builtins.customer_id = customer_id
-        request_data = {"data": {"customer_id": value_customer_id,
-                                 "value_cash": value_cash,
-                                 "value_date": value_date,
-                                 "value_money": value_money
-                                 }
-                        }
-        return request_data
+
+        if value_customer_id == '':
+            request_data = {"data": {"customer_id": 'customer not found'}}
+        else:
+            request_data = {"data": {"customer_id": value_customer_id,
+                                     "value_cash": value_cash,
+                                     "value_date": value_date,
+                                     "value_money": value_money
+                                     }
+                            }
+        return request_data, df_search
     except Exception as e:
         print(e)
 
@@ -150,26 +140,37 @@ def send_df_to_s3(df, key):
               
 
 def df_to_local(df, path:str):
+    
+    str_to_dict = '{' + path + '}'
+    json_request = json.dumps(str_to_dict)
+    str_to_dict = json_request.replace("\'", "\"")
+    print(str_to_dict)
+    request_ = json.loads(str_to_dict)
+    res = json.loads(request_)
+    print(f"Request: {res}")
+    path = res.get("path")
+    
     path_document = path + 'document_validation.csv'
     df.to_csv(path_document, sep=',', encoding='utf-8', index=False)
-    return f'write document in {path_document}'
+    
+    return f"write document in: {path_document}", "status: 200"
 
 
-@app.route("/")
-def hello():
-    print("exitoso caso 1")
-    return "Hello World!"
-
-
-@app.route("/main", methods=['GET'])
-def main(request:dict):
-#def main():
+@app.route("/save/<request>/<path>", methods=['POST'])
+def save_local(request, path):
     try:
-        print("exitoso")
-        request = get_request()
-        #print(request)
-        print("status: 200")
-        return str(request)
+        request, df = get_request(request)
+        path = path.replace("_", "/")
+        return df_to_local(df, path)
+    except Exception as e:
+        print(e)
+
+
+@app.route("/main/<request>", methods=['POST'])
+def main(request:dict):
+    try:
+        request, df = get_request(request)
+        return str(request), "status: 200"
     except Exception as e:
         print(e)
 
