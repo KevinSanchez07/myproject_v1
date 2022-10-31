@@ -9,8 +9,6 @@ import boto3
 API = '' # YOUR API
 API_URL = f'https://api.polygon.io/v3/reference/dividends?apiKey={API}'
 
-EXPECTED_KEYS = ['']
-
 TABLE = '' # Change table for one that they have available in their Amazon account
 
 REGION_NAME = '' # your region name in amazon
